@@ -1,16 +1,36 @@
-
-from django.db.models.signals import post_save
-from django.dispatch import receiver
-
 from .models import Internship, Interview, Evaluation
 from notifications.utils import create_notification
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from django.db import transaction
+
 
 @receiver(post_save, sender=Internship)
 def update_internship_embedding(sender, instance, created, **kwargs):
-    if created or any(field in ['title', 'description', 'requirements'] 
-                   for field in instance.get_dirty_fields()):
-        instance.update_embedding()
+    """
+    Update vector embedding when internship is created or text fields change.
+    Uses transaction.on_commit to ensure it runs after successful save.
+    """
+    # Check if we need to update the embedding
+    fields_to_check = ['title', 'description', 'requirements']
+    update_needed = False
 
+    if created:
+        update_needed = True
+    else:
+        # Get the original instance before update
+        try:
+            original = Internship.objects.get(pk=instance.pk)
+            for field in fields_to_check:
+                if getattr(original, field) != getattr(instance, field):
+                    update_needed = True
+                    break
+        except Internship.DoesNotExist:
+            pass
+
+    if update_needed:
+        # Use transaction.on_commit to avoid race conditions
+        transaction.on_commit(lambda: instance.update_embedding())
 
 @receiver(post_save, sender=Interview)
 def handle_interview_scheduling(sender, instance, created, **kwargs):

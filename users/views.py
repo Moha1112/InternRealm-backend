@@ -251,6 +251,9 @@ def send_verification_email(request):
         
         # In a real app, you would send an email here
         # send_verification_email_task.delay(user.email, str(token.token))
+        from notifications.utils import create_notification, send_html_email
+        create_notification(user, "system", "A verification email has been sent.", "A verification token has been sent to your email address.")
+        # send_html_email("Your email verification token", f"The token: {token.token}", user.email)
         
         return JsonResponse({
             "success": True,

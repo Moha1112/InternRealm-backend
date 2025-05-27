@@ -30,3 +30,14 @@ def send_email_notification(notification):
         [notification.user.email],
         fail_silently=True
     )
+
+def send_html_email(subject, message, recipient_list, **kwargs):
+    """Send email version of notifications"""
+    subject = f"[InternHub] {subject}"
+    send_mail(
+        subject,
+        message,
+        settings.DEFAULT_FROM_EMAIL,
+        recipient_list,
+        **kwargs
+    )

@@ -165,7 +165,6 @@ def list_internships(request):
         return JsonResponse(response_data)
     
     except Exception as e:
-        raise e
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 
@@ -178,7 +177,6 @@ def create_internship(request):
     try:
         from django.core.exceptions import ValidationError
         from .validations import validate_future_date, validate_salary
-        from django.contrib.gis.geos import Point
 
         company = request._user.company_profile
         data = request.parsed_data
@@ -276,7 +274,7 @@ def create_internship(request):
             'code': 'VALIDATION_ERROR',
             'details': e.message_dict if hasattr(e, 'message_dict') else None
         }, status=400)
-        
+
     except Exception as e:
         return JsonResponse({
             'success': False,
@@ -284,32 +282,121 @@ def create_internship(request):
             'code': 'SERVER_ERROR'
         }, status=500)
 
-
 @authenticate_token
-@role_required('student')
+@role_required('company')
 @csrf_exempt
-@require_http_methods(["POST"])
+@require_http_methods(["PUT"])
 @strict_body_to_json
-def apply_for_internship(request):
+def edit_internship(request, internship_id):
     try:
-        student = request._user
+        from django.core.exceptions import ValidationError, ObjectDoesNotExist
+        from .validations import validate_future_date, validate_salary
+
+        company = request._user.company_profile
         data = request.parsed_data
-        
-        application = Application.objects.create(
-            internship_id=data['internship_id'],
-            student=student,
-            cover_letter=data['cover_letter'],
-            resume_url=data['resume_url']
-        )
-        
+
+        # Get existing internship
+        try:
+            internship = Internship.objects.get(id=internship_id, company=company)
+        except ObjectDoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': 'Internship not found or not owned by your company',
+                'code': 'NOT_FOUND'
+            }, status=404)
+
+        # Date validation if provided
+        if 'application_deadline' in data:
+            try:
+                validate_future_date(data['application_deadline'])
+                internship.application_deadline = data['application_deadline']
+            except ValidationError as e:
+                return JsonResponse({
+                    'success': False,
+                    'error': str(e),
+                    'code': 'INVALID_DATE'
+                }, status=400)
+
+        # Salary validation if provided
+        if 'is_paid' in data or 'salary' in data:
+            try:
+                validate_salary({
+                    'is_paid': data.get('is_paid', internship.is_paid),
+                    'salary': data.get('salary', internship.salary)
+                })
+                if 'is_paid' in data:
+                    internship.is_paid = data['is_paid']
+                if 'salary' in data:
+                    internship.salary = data['salary']
+            except ValidationError as e:
+                return JsonResponse({
+                    'success': False,
+                    'error': str(e),
+                    'code': 'INVALID_SALARY'
+                }, status=400)
+
+        # Validate coordinates if provided
+        if 'latitude' in data or 'longitude' in data:
+            try:
+                lat = float(data.get('latitude')) if data.get('latitude') else None
+                lng = float(data.get('longitude')) if data.get('longitude') else None
+                if ((lat and not (-90 <= lat <= 90)) or
+                    (lng and not (-180 <= lng <= 180))):
+                    raise ValidationError("Invalid coordinates range")
+                if bool(lat) != bool(lng):
+                    raise ValidationError("Both latitude and longitude must be provided")
+                internship.latitude = lat
+                internship.longitude = lng
+            except (ValueError, TypeError) as e:
+                return JsonResponse({
+                    'success': False,
+                    'error': str(e),
+                    'code': 'INVALID_COORDINATES'
+                }, status=400)
+
+        # Update standard fields
+        updatable_fields = [
+            'title', 'description', 'requirements',
+            'duration_months', 'location', 'remote_option'
+        ]
+        for field in updatable_fields:
+            if field in data:
+                setattr(internship, field, data[field])
+
+        # Full model validation
+        internship.full_clean()
+        internship.save()
+
+        # Return success response
         return JsonResponse({
             'success': True,
-            'application_id': application.id
-        }, status=201)
-    
+            'internship': {
+                'id': internship.id,
+                'title': internship.title,
+                'company_id': company.id,
+                'updated_at': internship.updated_at.isoformat(),
+                'location_data': {
+                    'address': internship.location,
+                    'coordinates': internship.coordinates
+                }
+            }
+        })
+
+    except ValidationError as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e),
+            'code': 'VALIDATION_ERROR',
+            'details': e.message_dict if hasattr(e, 'message_dict') else None
+        }, status=400)
+
     except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)}, status=400)
-    
+        return JsonResponse({
+            'success': False,
+            'error': 'An unexpected error occurred',
+            'code': 'SERVER_ERROR'
+        }, status=500)
+
 @authenticate_token
 @role_required('student')
 @csrf_exempt
@@ -405,6 +492,129 @@ def internship_detail(request, internship_id):
             'success': False,
             'message': str(e),
             'errno': 0x81  # General error code
+        }, status=500)
+
+
+@authenticate_token
+@role_required('company')
+@csrf_exempt
+@require_http_methods(["PUT"])
+@strict_body_to_json
+def edit_internship(request, internship_id):
+    try:
+        from django.core.exceptions import ValidationError, ObjectDoesNotExist
+        from .validations import validate_future_date
+
+        company = request._user.company_profile
+        data = request.parsed_data
+
+        # Get existing internship
+        try:
+            internship = Internship.objects.get(id=internship_id, company=company)
+        except ObjectDoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': 'Internship not found or not owned by your company',
+                'code': 'NOT_FOUND'
+            }, status=404)
+
+        # Update standard fields
+        updatable_fields = [
+            'title', 'description', 'requirements',
+            'duration_months', 'location', 'remote_option',
+            'status', 'application_deadline'
+        ]
+
+        for field in updatable_fields:
+            if field in data:
+                setattr(internship, field, data[field])
+
+        # Handle salary fields
+        if 'is_paid' in data:
+            internship.is_paid = data['is_paid']
+        if 'salary' in data:
+            internship.salary = data['salary'] if data['salary'] is not None else None
+
+        # Validate and update coordinates
+        if 'latitude' in data or 'longitude' in data:
+            try:
+                lat = float(data['latitude']) if 'latitude' in data and data['latitude'] is not None else None
+                lng = float(data['longitude']) if 'longitude' in data and data['longitude'] is not None else None
+
+                if (lat is not None and not (-90 <= lat <= 90)) or (lng is not None and not (-180 <= lng <= 180)):
+                    raise ValidationError("Invalid coordinates range")
+                if (lat is None) != (lng is None):
+                    raise ValidationError("Both latitude and longitude must be provided")
+
+                internship.latitude = lat
+                internship.longitude = lng
+            except (ValueError, TypeError) as e:
+                return JsonResponse({
+                    'success': False,
+                    'error': str(e),
+                    'code': 'INVALID_COORDINATES'
+                }, status=400)
+
+        # Validate status
+        if 'status' in data and data['status'] not in dict(Internship.STATUS_CHOICES):
+            return JsonResponse({
+                'success': False,
+                'error': 'Invalid status value',
+                'code': 'INVALID_STATUS'
+            }, status=400)
+
+        # Validate future date if deadline is being updated
+        if 'application_deadline' in data:
+            try:
+                validate_future_date(data['application_deadline'])
+            except ValidationError as e:
+                return JsonResponse({
+                    'success': False,
+                    'error': str(e),
+                    'code': 'INVALID_DATE'
+                }, status=400)
+
+        # Full model validation
+        try:
+            internship.full_clean()
+            internship.save()
+        except ValidationError as e:
+            return JsonResponse({
+                'success': False,
+                'error': str(e),
+                'code': 'VALIDATION_ERROR',
+                'details': e.message_dict if hasattr(e, 'message_dict') else None
+            }, status=400)
+
+        # Return success response
+        return JsonResponse({
+            'success': True,
+            'internship': {
+                'id': internship.id,
+                'title': internship.title,
+                'status': internship.status,
+                'company_id': company.id,
+                'created_at': internship.created_at.isoformat(),
+                'updated_at': internship.updated_at.isoformat(),
+                'location_data': {
+                    'address': internship.location,
+                    'coordinates': internship.coordinates,
+                    'is_remote': internship.remote_option
+                },
+                'compensation': {
+                    'is_paid': internship.is_paid,
+                    'salary': float(internship.salary) if internship.salary else None
+                },
+                'duration_months': internship.duration_months,
+                'application_deadline': internship.application_deadline.isoformat()
+            }
+        })
+
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': 'An unexpected error occurred',
+            'code': 'SERVER_ERROR'
         }, status=500)
 
 @authenticate_token

@@ -30,5 +30,5 @@ urlpatterns = [
     path('api/recommendation/', include('recommendations.urls')),
     path('api/notification/', include('notifications.urls')),
 
-    # re_path("^[.?]*", include("main.urls")),
+    path("", include("main.urls")),
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

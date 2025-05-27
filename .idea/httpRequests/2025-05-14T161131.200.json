@@ -1,0 +1,10 @@
+{
+  "success": true,
+  "user": {
+    "id": 1,
+    "email": "mohammedifkirne569@gmail.com",
+    "username": "mohammedifkirne569",
+    "role": "company",
+    "is_verified": true
+  }
+}

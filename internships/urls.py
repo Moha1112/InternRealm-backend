@@ -8,6 +8,8 @@ urlpatterns = [
     path('<int:interview_id>/evaluations/', views.get_evaluations, name='get-evaluations'),
     path('<int:interview_id>/evaluate/', views.submit_evaluation, name='submit-evaluation'),
     path('<int:internship_id>/', views.internship_detail, name='internship-detail'),
+    path('<int:internship_id>/edit', views.edit_internship, name='internship-detail'),
+
     path('applications/', views.list_applications, name='list-applications'),
     
     # Add these for company actions

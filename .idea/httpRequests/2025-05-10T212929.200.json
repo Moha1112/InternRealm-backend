@@ -1,0 +1,33 @@
+{
+  "success": true,
+  "pagination": {
+    "total_items": 0,
+    "total_pages": 1,
+    "current_page": 1,
+    "page_size": 20,
+    "next": null,
+    "previous": null
+  },
+  "results": [],
+  "data": {
+    "filters": {
+      "applied": {
+        "page": "1"
+      },
+      "available": {
+        "sort_options": [
+          "recent",
+          "deadline",
+          "salary",
+          "duration",
+          "title"
+        ],
+        "location_types": [
+          "exact match (use quotes)",
+          "contains",
+          "remote"
+        ]
+      }
+    }
+  }
+}
