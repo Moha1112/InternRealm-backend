@@ -44,6 +44,9 @@ class User(models.Model):
         if len(password) < 8:
             raise ValidationError("Password must be ≥8 characters")
 
+    def get_full_name(self):
+        return self.first_name + " " + self.last_name
+
 class Session(models.Model):
     """Model to handle user sessions."""
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='session_info')

@@ -15,8 +15,9 @@ def student_recommendations(request):
         data = [{
             'id': i.id,
             'title': i.title,
-            'company': i.company.company_name,
-            'match_score': float(i.match_score),
+            'company': {'name': i.company.company_name},
+            'location': i.location,
+            'matchScore': float(i.match_score),
             'deadline': i.application_deadline.isoformat()
         } for i in internships]
         

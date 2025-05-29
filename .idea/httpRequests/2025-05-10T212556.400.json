@@ -1,5 +1,0 @@
-{
-  "success": false,
-  "error": "argument of type 'NoneType' is not iterable",
-  "code": "CV_CREATION_ERROR"
-}

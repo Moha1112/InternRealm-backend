@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import StudentProfile, CompanyProfile
+from .models import StudentProfile, CompanyProfile, StudentCV
 
 class EducationInline(admin.StackedInline):
     model = StudentProfile
@@ -21,7 +21,7 @@ class StudentProfileAdmin(admin.ModelAdmin):
         ('Education', {'fields': ('education_level', 'university', 'major', 'graduation_year', 'gpa')}),
         ('Professional', {'fields': ('availability', 'work_authorization')}),
         ('Job Preferences', {'fields': ('search_status', 'preferred_locations', 'desired_salary')}),
-        ('Social', {'fields': ('linkedin_url', 'github_url', 'website_url')}),
+        ('Social', {'fields': ('linkedin_url', 'github_url', 'website_url', 'saved_internships')}),
         ('Dates', {'fields': ('created_at', 'updated_at')}),
     )
     
@@ -52,3 +52,7 @@ class CompanyProfileAdmin(admin.ModelAdmin):
     def industry_display(self, obj):
         return obj.get_industry_display()
     industry_display.short_description = 'Industry'
+
+@admin.register(StudentCV)
+class StudentCVAdmin(admin.ModelAdmin):
+    list_display = ('user', 'title', 'education', 'experience', 'is_default')

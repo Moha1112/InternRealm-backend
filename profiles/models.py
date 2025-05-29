@@ -70,7 +70,9 @@ class StudentProfile(models.Model):
         blank=True,
         validators=[MinValueValidator(0)]
     )
-    
+
+    saved_internships = models.ManyToManyField("internships.Internship", related_name='saved_internships', blank=True)
+
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

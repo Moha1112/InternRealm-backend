@@ -10,6 +10,10 @@ urlpatterns = [
     path('<int:internship_id>/', views.internship_detail, name='internship-detail'),
     path('<int:internship_id>/edit', views.edit_internship, name='internship-detail'),
 
+    path('save/<int:internship_id>/', views.save_internship, name='save-internship'),
+    path('unsave/<int:internship_id>/', views.unsave_internship, name='unsave-internship'),
+    path('saved/', views.get_saved_internships, name='saved-internships'),
+
     path('applications/', views.list_applications, name='list-applications'),
     
     # Add these for company actions

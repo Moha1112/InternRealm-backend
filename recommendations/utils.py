@@ -8,13 +8,16 @@ def get_student_recommendations(student, limit=5):
     Get personalized internship recommendations for a student
     """
     cv = student.cvs.filter(is_default=True).first()
-    if not cv or not cv.embedding:
+    if not cv:
         return Internship.objects.none()
+    if not cv.embedding.all():
+        cv.update_embedding()
+
     
     return Internship.objects.filter(
         status='published'
     ).annotate(
-        match_score=1 - CosineDistance('embedding', cv.embedding)
+        match_score=CosineDistance('embedding', cv.embedding)
     ).order_by(
         '-match_score',
         '-created_at'

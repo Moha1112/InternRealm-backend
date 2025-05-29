@@ -149,10 +149,7 @@ class Interview(models.Model):
         null=True
     )
     notes = models.TextField(blank=True)
-    interviewers = models.ManyToManyField(
-        User,
-        related_name='interviews_to_conduct'
-    )
+    interviewers = models.ManyToManyField(User, related_name='interviews_to_conduct')
 
     class Meta:
         ordering = ['start_time']
@@ -220,7 +217,6 @@ class Interview(models.Model):
 
     def __str__(self):
         return f"{self.get_interview_type_display()} - {self.application.student.email}"
-
 
 class Migration(migrations.Migration):
     operations = [

@@ -95,6 +95,9 @@ def me(request):
         "success": True,
         "user": {
             "id": user.id,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "phone_number": user.phone_number,
             "email": user.email,
             "username": user.username,
             "role": user.role,

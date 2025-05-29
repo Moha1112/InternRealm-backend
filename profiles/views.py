@@ -17,7 +17,19 @@ def get_profile(request):
         if user.role == 'student':
             data = student_profile_to_dict(user.student_profile)
         else:
+            from internships.models import Application
             data = company_profile_to_dict(user.company_profile)
+            data["stats"] = {
+                "totalInternships": user.company_profile.internships.count(),
+                "activeInternships": user.company_profile.internships.filter(status='published').count(),
+                "applications": Application.objects.filter(
+                    internship__company=user.company_profile
+                ).count(),
+                "hiredInterns": Application.objects.filter(
+                    status='hired',
+                    internship__company=user.company_profile
+                ).count(),
+            }
         
         return JsonResponse({
             "success": True,

@@ -9,6 +9,11 @@ from users.models import User
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_integer, DecimalValidator
 from .pagination import CustomPagination
+from pgvector.django import (
+    MaxInnerProduct,  # For cosine similarity when vectors normalized
+    CosineDistance,  # For cosine distance
+)
+import numpy as np
 
 
 @authenticate_token
@@ -436,6 +441,75 @@ def apply_for_internship(request):
         }, status=400)
 
 @authenticate_token
+@role_required('student')
+@csrf_exempt
+@require_http_methods(["POST"])
+def save_internship(request, internship_id):
+    try:
+        student = request._user.student_profile
+        internship = Internship.objects.get(
+            id=internship_id,
+        )
+
+        student.saved_internships.add(internship)
+
+        return JsonResponse({
+            'success': True,
+            'internship_id': internship.id
+        }, status=201)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e),
+            'code': 'SAVE_ERROR'
+        }, status=400)
+
+
+@authenticate_token
+@role_required('student')
+@csrf_exempt
+@require_http_methods(["POST"])
+def unsave_internship(request, internship_id):
+    try:
+        student = request._user.student_profile
+        internship = Internship.objects.get(
+            id=internship_id,
+        )
+        student.saved_internships.remove(internship)
+
+        return JsonResponse({
+            'success': True,
+            'internship_id': internship.id
+        }, status=201)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e),
+            'code': 'UNSAVE_ERROR'
+        }, status=400)
+
+
+@authenticate_token
+@role_required('student')
+@csrf_exempt
+@require_http_methods(["GET"])
+def get_saved_internships(request):
+    try:
+        student = request._user.student_profile
+        saved_internship = student.saved_internships.all()
+
+        return JsonResponse({
+            'success': True,
+            'internships': [inter.id for inter in saved_internship]
+        }, status=201)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e),
+            'code': 'SAVE_ERROR'
+        }, status=400)
+
+@authenticate_token
 @csrf_exempt
 @require_http_methods(["GET"])
 def internship_detail(request, internship_id):
@@ -444,14 +518,29 @@ def internship_detail(request, internship_id):
             id=internship_id,
             status='published'  # Only show published internships
         )
+
+        if internship.embedding is None or len(internship.embedding) == 0:
+            internship.update_embedding()
+
+        similar_internships = Internship.objects.filter(
+            status='published'
+        ).exclude(
+            id=internship.id
+        ).annotate(
+            similarity=CosineDistance('embedding', internship.embedding),
+        ).order_by('similarity')[:3]
         
         response_data = {
             'id': internship.id,
             'title': internship.title,
             'company': {
-                'id': internship.company.user.id,
+                'id': internship.company.id,
                 'name': internship.company.company_name,
-                'logo': internship.company.logo_url
+                'logo': internship.company.logo_url,
+                'size': internship.company.company_size,
+                'founded': internship.company.founded_year,
+                'industry': internship.company.industry,
+                'description': internship.company.description,
             },
             'description': internship.description,
             'requirements': internship.requirements,
@@ -463,6 +552,15 @@ def internship_detail(request, internship_id):
             'deadline': internship.application_deadline.isoformat(),
             'created_at': internship.created_at.isoformat(),
             'coordinates': internship.coordinates,
+            'similar_internships': [{
+                'id': similar_internship.id,
+                'title': similar_internship.title,
+                'similarity': similar_internship.similarity,
+                'company': {
+                    'id': similar_internship.company.id,
+                    'name': similar_internship.company.company_name,
+                }
+            } for similar_internship in similar_internships],
         }
         
         # Add application status if user is student
@@ -626,14 +724,24 @@ def list_applications(request):
             # Student sees their own applications
             applications = Application.objects.filter(
                 student=request._user
-            ).select_related('internship', 'internship__company')
-            
+            ).select_related('internship', 'internship__company').order_by('-applied_at')
+
             data = [{
                 'id': app.id,
                 'internship': {
                     'id': app.internship.id,
                     'title': app.internship.title,
-                    'company': app.internship.company.company_name
+                    'company': app.internship.company.company_name,
+                    'location': app.internship.location,
+                    'salary': app.internship.salary,
+                    'deadline' : app.internship.application_deadline,
+                },
+                'company': {
+                    'id': app.internship.company.id,
+                    "name": app.internship.company.company_name,
+                },
+                'interview': {
+                    'id': app.interviews.first().id if app.interviews.count() > 0 else None,
                 },
                 'status': app.status,
                 'applied_at': app.applied_at.isoformat(),
@@ -723,14 +831,6 @@ def update_application_status(request, application_id):
             'errno': 0x81
         }, status=500)
 
-# In views.py
-from pgvector.django import (
-    MaxInnerProduct,  # For cosine similarity when vectors normalized
-    CosineDistance,  # For cosine distance
-)
-
-import numpy as np
-
 @authenticate_token
 @csrf_exempt
 @require_http_methods(["POST"])
@@ -745,15 +845,18 @@ def semantic_search(request):
         results = Internship.objects.filter(
             status='published'
         ).annotate(
-            similarity=1 - MaxInnerProduct('embedding', query_embedding)
+            similarity=CosineDistance('embedding', query_embedding)
         ).order_by('similarity')[:20]
     
         serialized = [{
             'id': i.id,
             'title': i.title,
-            'company': i.company.company_name,
-            'description': i.description[:200] + '...' if i.description else '',
-            'score': float(1 / (1 + np.exp(i.distance)))  # Convert distance to 0-1 score
+            'company': {
+                "id": i.company.id,
+                "name": i.company.company_name,
+            },
+            'description': i.description,
+            'score': i.similarity
         } for i in results]
         
         return JsonResponse({
@@ -796,7 +899,7 @@ def hybrid_search(request):
         'title': i.title,
         'company': i.company.company_name,
         'description': i.description[:200] + '...' if i.description else '',
-        'score': float(1 / (1 + np.exp(i.distance)))  # Convert distance to 0-1 score
+        'score': float(1 / (1 + np.exp(i.similarity)))  # Convert distance to 0-1 score
     } for i in results]
     
     return JsonResponse({
@@ -810,7 +913,6 @@ def hybrid_search(request):
 @require_http_methods(["POST"])
 @strict_body_to_json
 def get_embedding(request):
-    from django.db.models import Q
     from .utils import generate_embedding  # Local import
 
     
