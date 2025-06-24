@@ -9,7 +9,7 @@ Il gère la logique métier, la gestion des utilisateurs, les offres de stages, 
 
 ## Technologies utilisées
 
-- **Python 3.x**
+- **Python 3.12**
 - **Django** : framework web utilisé pour construire l’API backend.
 - **PostgreSQL** : base de données relationnelle utilisée pour stocker les données.
 - **pgvector** : extension PostgreSQL utilisée pour le stockage des embeddings vectoriels.
