@@ -23,7 +23,7 @@ def validate_future_date(value):
 def validate_salary(data):
     if data.get('is_paid') and not data.get('salary'):
         raise ValidationError("Salary must be provided for paid internships")
-    if data.get('salary') and data.get('salary') < 0:
+    if data.get('salary') and int(data.get('salary')) < 0:
         raise ValidationError("Salary cannot be negative")
 
 def validate_application_status(current_status, new_status):

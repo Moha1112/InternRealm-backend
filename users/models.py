@@ -19,7 +19,7 @@ class User(models.Model):
     first_name = models.CharField(max_length=50)
     last_name = models.CharField(max_length=50)
     role = models.CharField(max_length=20, choices=USER_TYPE_CHOICES)
-    is_verified = models.BooleanField(default=False)
+    is_verified = models.BooleanField(default=True)
     last_login = models.DateTimeField(null=True, blank=True)
     profile_picture_url = models.CharField(max_length=255, blank=True, null=True)
     phone_number = models.CharField(max_length=20, blank=True, null=True)

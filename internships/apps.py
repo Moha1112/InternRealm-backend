@@ -7,3 +7,7 @@ class InternshipsConfig(AppConfig):
 
     def ready(self):
         import internships.signals
+        # Warm up model when Django starts
+        from .utils import generate_embedding
+        generate_embedding("warmup")  # Initial load
+        print("✅ Semantic model preloaded")

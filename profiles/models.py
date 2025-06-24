@@ -284,6 +284,6 @@ from django.dispatch import receiver
 
 @receiver(post_save, sender=StudentCV)
 def update_cv_embedding(sender, instance, **kwargs):
-    if any(field in kwargs.get('update_fields', []) 
-           for field in ['title', 'skills', 'experience']):
-        instance.update_embedding()
+    #if any(field in kwargs.get('update_fields', []) 
+           #for field in ['title', 'skills', 'experience']):
+    instance.update_embedding()

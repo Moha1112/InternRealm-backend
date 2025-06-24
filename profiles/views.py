@@ -7,6 +7,7 @@ from users.models import User
 from .models import StudentProfile, CompanyProfile, StudentCV, student_profile_to_dict, company_profile_to_dict
 from .decorators import profile_access_required
 import json
+from internships.models import Application, Interview
 
 @csrf_exempt
 @authenticate_token
@@ -16,8 +17,15 @@ def get_profile(request):
     try:
         if user.role == 'student':
             data = student_profile_to_dict(user.student_profile)
+            data["stats"] = {
+                "applications": Application.objects.filter(
+                    student=user
+                ).count(),
+                "interviews": Interview.objects.filter(
+                    application__student=user
+                ).count()
+            }
         else:
-            from internships.models import Application
             data = company_profile_to_dict(user.company_profile)
             data["stats"] = {
                 "totalInternships": user.company_profile.internships.count(),
@@ -45,7 +53,7 @@ def get_profile(request):
 
 @csrf_exempt
 @authenticate_token
-@require_http_methods(["PATCH"])
+@require_http_methods(["POST"])
 def update_profile(request):
     user = request._user
     try:
@@ -185,6 +193,7 @@ def create_cv(request):
         }, status=201)
         
     except Exception as e:
+        raise e
         return JsonResponse({
             'success': False,
             'error': str(e),

@@ -170,6 +170,7 @@ def list_internships(request):
         return JsonResponse(response_data)
     
     except Exception as e:
+        raise e
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 
@@ -251,6 +252,7 @@ def create_internship(request):
             application_deadline=data['application_deadline'],
             longitude=data.get('longitude'),
             latitude=data.get('latitude'),
+            status="published"
         )
 
         # Full model validation
@@ -281,6 +283,7 @@ def create_internship(request):
         }, status=400)
 
     except Exception as e:
+        
         return JsonResponse({
             'success': False,
             'error': 'An unexpected error occurred',
@@ -767,8 +770,7 @@ def list_applications(request):
                 },
                 'status': app.status,
                 'applied_at': app.applied_at.isoformat(),
-                'cover_letter': app.cover_letter,
-                'resume_url': app.resume_url
+                'cover_letter': app.cover_letter
             } for app in applications]
             
         else:
@@ -840,7 +842,9 @@ def semantic_search(request):
         from .utils import generate_embedding  # Local import
         
         query = request.parsed_data.get('query', '')
+        print(f"Query: '{query}' (Length: {len(query)})")  # Check for empty/malformed input
         query_embedding = generate_embedding(query)
+        print(f"Embedding shape: {len(query_embedding)}")  # Verify vector dimensions
         
         results = Internship.objects.filter(
             status='published'
@@ -870,7 +874,8 @@ def semantic_search(request):
             'success': False,
             'error': str(e)
         }, status=500)
-    
+
+
 # Combine semantic and keyword search
 @authenticate_token
 @csrf_exempt
